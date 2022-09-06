@@ -4,30 +4,44 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite App</title>
+    <title>Julien Pradet - Break</title>
     <style>
       body {
         margin: 0;
+        box-sizing: border-box;
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
         height: 100vh;
-        background: #f2f2f2;
+        background: #fff;
       }
 
-      #app {
+      #container {
         font-family: Avenir, Helvetica, Arial, sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         text-align: center;
         color: #2c3e50;
         display: block;
+        max-width: calc(100vw);
+        max-height: calc(100vh);
+        height: auto !important;
+        width: auto !important;
+      }
+
+      canvas {
+        display: block;
+        max-width: 100%;
+        max-height: 100%;
+        width: 100%;
+        height: auto;
+        transform: none !important;
       }
     </style>
   </head>
   <body>
     <div id="container"></div>
-    <script type="module" src="/main.js"></script>
+    <script type="module" src="/main.ts"></script>
   </body>
 </html>
