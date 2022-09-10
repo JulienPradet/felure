@@ -35,6 +35,8 @@ import { getIntersection } from "canvas-jp/intersection";
 import { UpdateImageData } from "canvas-jp/UpdateImageData";
 import { Circle } from "canvas-jp/Circle";
 
+const fast = false;
+
 canvasJp(
   document.querySelector("#container") as HTMLElement,
   function* (random, { width: windowWidth, height: windowHeight, resolution }) {
@@ -56,10 +58,22 @@ canvasJp(
 
     const isDullLight = !isGiganticSize && random.value() > 0.88;
     const isColorful = random.value() > 0.92;
-    const isDarkBackground =
+    let isDarkBackground =
       (!isColorful && !isDullLight) || random.value() > 0.2;
 
-    const baseHue = isColorful ? 0 : random.gaussian(0, 0.1);
+    const isLightPicker = random.value() > 0.15;
+    if (isLightPicker) {
+      isDarkBackground = false;
+    }
+
+    const isColoredBackground = random.value() > 0.2;
+
+    const baseHue =
+      isColorful || isColoredBackground
+        ? 0
+        : isLightPicker
+        ? random.gaussian(0, 0.05)
+        : random.gaussian(0, 0.1);
 
     const firstPaletteColors = {
       darkBlue: Color(baseHue + 214 / 360, 0.56 * 1.05, 0.5 * 0.9),
@@ -68,19 +82,48 @@ canvasJp(
       yellow: Color(baseHue + 41 / 360, 0.64 * 0.95, 1 * 0.9),
       beige: Color(baseHue + 37 / 360, 0.17 * 1.05, 0.99 * 0.85), // this one must be last for psychedelic
     };
-    const palette = Object.values(firstPaletteColors);
+    const secondPaletteColors = {
+      red: Color(baseHue + 265 / 360, 0.53, 0.52),
+      green: Color(baseHue + 78 / 360, 0.73, 0.75),
+      dark: Color(baseHue + 180 / 360, 0.34, 0.25 * (isLightPicker ? 1.8 : 1)),
+      orange: Color(baseHue + 18 / 360, 0.82, 0.95),
+      white: Color(baseHue + 40 / 360, 0.57, 0.99),
+    };
+    const thirdPaletteColors = {
+      red: Color(0.96, 0.65, 0.85),
+      purple: Color(0.435, 0.4, 0.85),
+      blue: Color(0.68, 0.2, 0.58),
+      white: Color(0.24, 0.2, 0.97),
+      //   black: Color(40 / 360, 0.05, 0.1),
+    };
+    const paletteColors = random.pick(
+      new Array<{ [key in string]: CanvasJpColorHsv }>().concat([
+        secondPaletteColors,
+        firstPaletteColors,
+        thirdPaletteColors,
+      ])
+    );
+
+    const palette = Object.values(
+      //   firstPaletteColors
+      paletteColors
+    );
+
+    const pickedBackground = random.pick(palette);
+    // pickedBackground.s = pickedBackground.s * 0.8;
+    // pickedBackground.v = pickedBackground.v * 1.1;
 
     let mainHue = random.value();
     // if (0.6 < mainHue && mainHue < 0.8) {
     //   mainHue = random.value();
     // }
 
-    const white = Color(baseHue, 0.1, 0.99);
-    const black = Color(baseHue, 0.1, 0.23);
+    const white = Color(mainHue, 0.03, 0.99);
+    const black = Color(mainHue, 0.4, 0.18);
     let blackAndWhitePalette = [white, black];
 
     const gradientAngle = random.value() * Math.PI * 2;
-    const hasGradient = isColorful || random.value() > 0.1;
+    const hasGradient = isColorful || random.value() > 0.05;
     const gradientStrength = Math.pow(random.value(), 0.3);
     const hasCellGradientHomogeneity = random.value() > 0.2;
 
@@ -110,7 +153,7 @@ canvasJp(
         colorA.v * factor + colorB.v * (1 - factor)
       );
     }
-    oppositeMix.fxname = "Opposite";
+    oppositeMix.fxname = "clickwiseMix";
 
     function randomMix(
       colorA: CanvasJpColorHsv,
@@ -156,11 +199,11 @@ canvasJp(
       new Array<ColorMixer>()
         .concat(new Array(10).fill(oppositeMix))
         .concat(new Array(10).fill(Color.mix))
-        .concat([randomMix])
+        .concat(new Array(isLightPicker ? 1 : 10).fill(randomMix))
     );
 
     function blackAndWhite(): ReturnType<ColorPicker> {
-      const mainColor = isDarkBackground ? black : white;
+      const mainColor = isDarkBackground || !isLightPicker ? black : white;
       const secondColor = random.pick(
         blackAndWhitePalette.filter((color) => color !== mainColor)
       );
@@ -218,19 +261,23 @@ canvasJp(
       };
     }
 
+    const duochromeBackground = isLightPicker
+      ? isColoredBackground
+        ? pickedBackground
+        : random.pick(palette)
+      : darkBackground;
+
+    const duochromeColorOptions = palette.filter(
+      (color) =>
+        Math.abs(color.v - duochromeBackground.v) > 0.2 &&
+        Math.abs(color.s - duochromeBackground.s) > 0.2
+    );
+
     function duochrome(): ReturnType<ColorPicker> {
-      const colorOptions = isDarkBackground
-        ? palette
-        : palette.filter((color) => color.v < 0.8);
-      const firstColor = random.pick(
-        colorOptions.filter((color) => color !== firstPaletteColors.greyBlue)
-      );
+      const firstColor = random.pick(duochromeColorOptions);
       const secondColor = random.pick(
-        colorOptions
-          .filter(
-            (color) =>
-              color !== firstColor && color !== firstPaletteColors.greyBlue
-          )
+        duochromeColorOptions
+          .filter((color) => color !== firstColor)
           .concat(
             hasGradient &&
               (!hasCellGradientHomogeneity || gradientStrength > 0.2)
@@ -242,7 +289,7 @@ canvasJp(
 
       return {
         name: "duochrome",
-        getBackgroundColor: () => darkBackground,
+        getBackgroundColor: () => duochromeBackground,
         getMainColor: () => random.pick(colors),
         getSecondColor: (mainColor: CanvasJpColorHsv) => random.pick(colors),
       };
@@ -263,12 +310,20 @@ canvasJp(
         ? psychedelic
         : random.pick(
             new Array<ColorPicker>()
-              .concat(new Array(isColorful ? 0 : 3).fill(blackAndWhite))
+              .concat(
+                new Array(isLightPicker || isColorful ? 0 : 3).fill(
+                  blackAndWhite
+                )
+              )
               .concat(
                 new Array(
-                  !isDarkBackground || isColorful || Math.abs(baseHue) > 0.1
-                    ? 0
-                    : 60
+                  duochromeColorOptions.length < 2
+                    ? //    ||
+                      //   (!isLightPicker && !isDarkBackground) ||
+                      //   (!isLightPicker && isColorful) ||
+                      //   (isDarkBackground && Math.abs(baseHue) > 0.1)
+                      0
+                    : 40
                 ).fill(duochrome)
               )
               .concat(new Array(isColorful ? 0 : 16).fill(multicolor))
@@ -431,19 +486,75 @@ canvasJp(
       };
     }
 
-    const colorPicker = testPicker();
+    const lightPicker: ColorPicker = () => {
+      //   const background = coreColorPicker.getBackgroundColor();
+      //   const background = Color(
+      //     backgroundBaseColor.h,
+      //     clamp(backgroundBaseColor.s * 0.8, 0, 1),
+      //     clamp(backgroundBaseColor.v * 1.3, 0, 1)
+      //   );
+      const background = isColoredBackground
+        ? pickedBackground
+        : colorPickerFactory === blackAndWhite
+        ? coreColorPicker.getBackgroundColor()
+        : colorPickerFactory === multicolorDarkBackground ||
+          colorPickerFactory === psychedelicDark
+        ? coreColorPicker.getBackgroundColor()
+        : Color(33 / 360, 0.21, 0.99);
+      return {
+        getBackgroundColor: () => background,
+        getMainColor: () => coreColorPicker.getMainColor(),
+        getSecondColor: (mainColor, progress) => {
+          const easedProgress = clamp(random.gaussian(progress, 0.01), 0, 1);
 
+          const color = coreColorPicker.getSecondColor(mainColor, progress);
+
+          const dullLight = colorMixer(
+            background,
+            coreColorPicker.getMainColor(),
+            0.9
+          );
+
+          if (
+            easedProgress < random.gaussian(0.25, 0.05) &&
+            random.value() > 0.2
+          ) {
+            return colorMixer(color, background, 1 - progress);
+          } else {
+            return rgbMix(
+              dullLight,
+              colorMixer(
+                dullLight,
+                color,
+                clamp(random.gaussian(Math.pow(1 - progress, 0.3), 0.1), 0, 1)
+              ),
+              0.9
+            );
+          }
+        },
+        name: "lightPicker",
+      };
+    };
+
+    const colorPicker = isLightPicker ? lightPicker() : testPicker();
+
+    const amountOfCells =
+      !isIrregularGrid || isGiganticSize
+        ? 1
+        : mapRange(Math.pow(random.value(), 10), 0, 1, 1, 3);
     const row = Math.round(
       Math.max(
         4,
         Math.ceil(mapRange(random.value(), 0, 1, height / 500, height / 200))
-      ) * 4.5
+      ) *
+        (4 * amountOfCells)
     );
     const column = Math.round(
       Math.max(
         4,
         Math.ceil(mapRange(random.value(), 0, 1, width / 500, width / 200))
-      ) * 4.5
+      ) *
+        (4 * amountOfCells)
     );
 
     const minGridMargin = 0;
@@ -463,15 +574,17 @@ canvasJp(
     // const maxColumns = Math.round(mapRange(random.value(), 0, 1, 2, 6));
     // const maxRows = Math.round(mapRange(random.value(), 0, 1, 2, 6));
 
+    const bigCellsRatio =
+      !isIrregularGrid || isGiganticSize ? 6 : 6 * amountOfCells;
     const maxColumns = isIrregularGrid
       ? isGiganticSize
         ? Math.floor(Math.min(column, row) * 0.8)
-        : Math.max(2, Math.floor(Math.max(column, row * 0.7) / 6))
+        : Math.max(2, Math.floor(Math.max(column, row * 0.7) / bigCellsRatio))
       : 1;
     const maxRows = isIrregularGrid
       ? isGiganticSize
         ? Math.floor(Math.min(column, row) * 0.8)
-        : Math.max(2, Math.floor(Math.max(column * 0.7, row) / 6))
+        : Math.max(2, Math.floor(Math.max(column * 0.7, row) / bigCellsRatio))
       : 1;
 
     const splitDistance =
@@ -860,6 +973,48 @@ canvasJp(
       return progress;
     };
 
+    const treesProgress = () => {
+      const numberOfRows = Math.round(mapRange(random.value(), 0, 1, 2, 5));
+
+      const trees = new Array(numberOfRows).fill(null).flatMap((_, index) => {
+        const rowProgress = index / numberOfRows;
+        const numberOfTrees = clamp(
+          Math.round(random.gaussian(index * 5 + 3, 2)),
+          2,
+          Number.MAX_SAFE_INTEGER
+        );
+
+        return new Array(numberOfTrees).fill(null).map((_, index) => {
+          const progress = random.gaussian(index / (numberOfTrees - 1), 0.05);
+          const treeWidth =
+            (mapRange(random.value(), 0, 1, 0.4, 0.8) * width) / numberOfTrees;
+          const treeHeight =
+            mapRange(random.value(), 0, 1, 0.3, 0.5) * height +
+            rowProgress * height * 0.7;
+          return {
+            shape: Polygon([
+              Point(width * progress - treeWidth, 0),
+              Point(
+                width * progress +
+                  treeWidth * mapRange(random.value(), 0, 1, -0.5, 0.5),
+                treeHeight
+              ),
+              Point(width * progress + treeWidth, 0),
+            ]),
+            value: Math.pow(rowProgress, 0.7),
+          };
+        });
+      });
+
+      const progress = (x: number, y: number): number => {
+        const point = Point(x, y);
+        const tree = trees.find((tree) => isInPolygon(tree.shape, point));
+        return tree ? tree.value : 1;
+      };
+      progress.fxname = "Forest";
+      return progress;
+    };
+
     const bombProgress = () => {
       const center = rotate(
         Point(width / 2, height / 2),
@@ -912,18 +1067,31 @@ canvasJp(
     const progressOptions = isGiganticSize
       ? [perlinProgress]
       : new Array<(x: number, y: number) => number>()
-          .concat(new Array(isIrregularGrid ? 60 : 10).fill(perlinProgress))
+          .concat(
+            new Array(amountOfCells > 1.1 ? 0 : isIrregularGrid ? 60 : 10).fill(
+              perlinProgress
+            )
+          )
           .concat(new Array(isIrregularGrid ? 14 : 7).fill(circleProgress))
           .concat(new Array(isDullLight ? 0 : 7).fill(rosaceProgress()))
           .concat(
             new Array(isIrregularGrid ? 10 : 2).fill(sineCircleProgress())
           )
           .concat(new Array(invertProgress ? 0 : 3).fill(bombProgress()))
-          .concat(new Array(invertProgress ? 0 : 3).fill(shapeProgress()))
+          .concat(
+            new Array(!isIrregularGrid || invertProgress ? 0 : 3).fill(
+              shapeProgress()
+            )
+          )
           //   .concat(new Array(isIrregularGrid ? 10 : 0).fill(heliceProgress()))
           .concat(
             new Array(isDullLight ? 0 : isIrregularGrid ? 6 : 3).fill(
               churchProgress()
+            )
+          )
+          .concat(
+            new Array(isIrregularGrid && hasGradient ? 6 : 0).fill(
+              treesProgress()
             )
           );
     const progressForm = random.pick(progressOptions);
@@ -964,7 +1132,7 @@ canvasJp(
           1,
           shouldIncreaseNumberOfSplits ? 3 : 1,
           shouldIncreaseNumberOfSplits ? 6 : 3.5
-        )
+        ) * mapRange(random.value(), 0, 1, 1, amountOfCells)
       ) *
         (isGiganticSize
           ? 5
@@ -1070,6 +1238,27 @@ canvasJp(
     const transformDirection = random.value() > 0.5 ? -1 : 1;
 
     const shouldMainSplit = !isGiganticSize && tiltAmount === 0;
+
+    console.table({
+      "Color Mixer": colorMixer.name,
+      "Color Picker": coreColorPicker.name,
+      isDullLight: isDullLight,
+      isIrregularGrid,
+      isGiganticSize,
+      isDarkBackground,
+      isColorful,
+      mainHue,
+      smoothFactor,
+      hasGradient,
+      gradientStrength,
+      hasCellGradientHomogeneity,
+      numberOfSplits,
+      progressForm: progressForm.fxname,
+      shouldMainSplit: shouldMainSplit,
+      transformAmount: tiltAmount,
+      invertProgress: invertProgress,
+      test: "test",
+    });
 
     const mainSplits = new Array(
       Math.round(mapRange(random.value(), 0, 1, 3, 5))
@@ -1668,38 +1857,31 @@ canvasJp(
     } else {
       windowOffset = Point((windowHeight - windowWidth) / 2, 0);
     }
-    const margin = Math.min(windowWidth, windowHeight) / 20;
+    const margin = Math.min(windowWidth, windowHeight) / 30;
 
     elements.sort((a, b) => {
-      const valueA =
-        a.fill?.color.__type === "Gradient"
-          ? a.fill.color.colors.reduce((acc, color) => acc + color.v, 0) /
-            a.fill.color.colors.length
-          : a.fill?.color.v;
-      const valueB =
-        b.fill?.color.__type === "Gradient"
-          ? b.fill.color.colors.reduce((acc, color) => acc + color.v, 0) /
-            b.fill.color.colors.length
-          : b.fill?.color.v;
-      const diff =
-        (valueA || 0) * (a.fill?.opacity || 0) -
-        (valueB || 0) * (b.fill?.opacity || 0);
+      const diff = (a.fill?.opacity || 0) - (b.fill?.opacity || 0);
+
+      let result;
       if (Math.abs(diff) > 0.001) {
-        return -diff;
+        result = diff;
       } else {
-        return -(
-          distance(polygonCenter(Polygon(b.points)), center) -
-          distance(polygonCenter(Polygon(a.points)), center)
-        );
+        result =
+          distance(polygonCenter(Polygon(a.points)), center) -
+          distance(polygonCenter(Polygon(b.points)), center);
+      }
+      if (isLightPicker) {
+        return -result;
+      } else {
+        return -result;
       }
     });
 
     const mainColor = colorPicker.getMainColor();
     const tint = random.gaussian(0, 0.4);
-    console.log(tint);
 
-    let i = 0;
-    const tinyShapes = new Array(700).fill(null).flatMap(() => {
+    let amountOfLight = 0;
+    const tinyShapes = new Array(fast ? 0 : 700).fill(null).flatMap(() => {
       const tinyShapesSize =
         mapRange(Math.pow(random.value(), 3.5), 0, 1, width / 100, width / 10) *
         (isGiganticSize ? 3 : 1);
@@ -1753,12 +1935,12 @@ canvasJp(
       );
 
       if (shouldLighten) {
-        i += Math.pow(value, 3);
+        amountOfLight += Math.pow(value, 3);
       } else {
-        i += 0.4;
+        amountOfLight += isLightPicker ? 0.4 : 0.6;
       }
       if (
-        i >
+        amountOfLight >
         (progressOptions.fxname === "Shape" ? 120 : 300) *
           (colorPicker.getBackgroundColor().v > 0.8 ? 0.3 : 1)
       ) {
@@ -1769,7 +1951,7 @@ canvasJp(
           value > 0.55
             ? SmoothShape(points.concat(points[0], points[1]), 0.3, {
                 color: gradient,
-                opacity: 0.35,
+                opacity: isLightPicker ? 0.35 : 0.25,
                 compositionOperation: "overlay",
                 filter: `blur(${
                   (clamp(
@@ -1805,6 +1987,8 @@ canvasJp(
         );
     });
 
+    let mainElementsLength = elements.length;
+
     elements = elements.concat(tinyShapes);
 
     elements = elements
@@ -1826,30 +2010,27 @@ canvasJp(
         )
       )
       .flatMap(
-        splitShape(
-          {
-            points: [
-              Point(margin, margin),
-              Point(windowWidth - margin, margin),
-              Point(windowWidth - margin, windowHeight - margin),
-              Point(margin, windowHeight - margin),
-            ],
-          },
-          true
-        )
+        splitShape({
+          points: [
+            Point(margin, margin),
+            Point(windowWidth - margin, margin),
+            Point(windowWidth - margin, windowHeight - margin),
+            Point(margin, windowHeight - margin),
+          ],
+        })
       )
       .filter((shape) => {
         const isInFrame = shape.points.reduce((acc, point) => {
           const isClearlyOutOfFrame =
-            point.x < margin * 0.99 ||
-            point.x > windowWidth - margin * 0.99 ||
-            point.y < margin * 0.99 ||
-            point.y > windowHeight - margin * 0.99;
+            point.x < margin * 0.7 ||
+            point.x > windowWidth - margin * 0.7 ||
+            point.y < margin * 0.7 ||
+            point.y > windowHeight - margin * 0.7;
           const isClearlyInsideOfFrame =
-            point.x > margin * 1.01 &&
-            point.x < windowWidth - margin * 1.01 &&
-            point.y > margin * 1.01 &&
-            point.y < windowHeight - margin * 1.01;
+            point.x > margin * 1.3 &&
+            point.x < windowWidth - margin * 1.3 &&
+            point.y > margin * 1.3 &&
+            point.y < windowHeight - margin * 1.3;
 
           const outOfFrameAmount = isClearlyInsideOfFrame
             ? 1000
@@ -1878,31 +2059,35 @@ canvasJp(
 
     yield {
       background: colorPicker.getBackgroundColor(),
-      elements: new Array<CanvasJpSmoothShape>(),
+      elements: [],
     };
-    const increment = Math.round(elements.length / (frames - 1));
-    for (let i = 0; i < frames; i++) {
-      const start = i * increment;
-      const end = (i + 1) * increment;
-      const next = 0 * increment;
+
+    const increment = Math.ceil(mainElementsLength / (frames - 1));
+    let latestElementDrawn = 0;
+    for (let i = 0; i < mainElementsLength; i += increment) {
+      const start = i;
+      latestElementDrawn = Math.min(i + increment, mainElementsLength);
 
       yield {
-        elements: new Array().concat(elements.slice(start, end)).concat(
-          elements.slice(end, next).map((shape) => {
-            return SmoothShape(
-              shape.points,
-              shape.__type === "SmoothShape" ? shape.smoothness : 0,
-              shape.fill
-                ? {
-                    ...shape.fill,
-                    opacity: shape.fill.opacity * 0.2,
-                  }
-                : undefined
-            );
-          })
-        ),
+        elements: new Array().concat(elements.slice(start, latestElementDrawn)),
       };
     }
+
+    yield {
+      elements: elements.slice(latestElementDrawn, mainElementsLength),
+    };
+
+    let numberOfTinyShapesDrawn = 0;
+    for (let i = mainElementsLength; i < elements.length; i += 20) {
+      numberOfTinyShapesDrawn = Math.min(i + 20, elements.length);
+      yield {
+        elements: elements.slice(i, i + 20),
+      };
+    }
+
+    yield {
+      elements: elements.slice(numberOfTinyShapesDrawn),
+    };
 
     if (colorPickerFactory === blackAndWhite && random.value() > 0) {
       const frame = PolygonFromRect(0, 0, width - 0 * 2, height - 0 * 2);
@@ -1933,78 +2118,62 @@ canvasJp(
       };
     }
 
-    yield {
-      elements: [
-        UpdateImageData((imageData) => {
-          for (let i = 0; i < imageData.data.length; i += 4) {
-            const value = Math.pow(
-              (imageData.data[i] +
-                imageData.data[i + 1] +
-                imageData.data[i + 2]) /
-                256 /
-                3,
-              0.3
-            );
-            const x = ((i - (i % 4)) / resolution) % width;
-            const y = Math.floor((i - (i % 4)) / resolution / width);
-            const gA =
-              0.04 *
-              Math.pow(mapRange(random.noise2D(x, y, 0.1), -1, 1, 0, 1), 2);
+    if (!fast) {
+      yield {
+        elements: [
+          UpdateImageData((imageData) => {
+            for (let i = 0; i < imageData.data.length; i += 4) {
+              const value = Math.pow(
+                (imageData.data[i] +
+                  imageData.data[i + 1] +
+                  imageData.data[i + 2]) /
+                  256 /
+                  3,
+                0.3
+              );
+              const x = ((i - (i % 4)) / resolution) % width;
+              const y = Math.floor((i - (i % 4)) / resolution / width);
+              const gA =
+                0.04 *
+                Math.pow(mapRange(random.noise2D(x, y, 0.1), -1, 1, 0, 1), 2);
 
-            const darker = mapRange(
-              Math.pow(mapRange(random.noise2D(x, y, 0.01), -1, 1, 0, 1), 0.3),
-              0,
-              1,
-              mapRange(Math.pow(value, 0.5), 0, 1, 0.8, 1),
-              1
-            );
-            const noise = random.gaussian(
-              1,
-              gA * mapRange(Math.pow(value, 3), 0, 1, 2, 0.7)
-            );
-            imageData.data[i] = clamp(
-              Math.round(imageData.data[i] * darker * noise),
-              0,
-              255
-            );
-            imageData.data[i + 1] = clamp(
-              Math.round(imageData.data[i + 1] * darker * noise),
-              0,
-              255
-            );
-            imageData.data[i + 2] = clamp(
-              Math.round(imageData.data[i + 2] * darker * noise),
-              0,
-              255
-            );
-            imageData.data[i + 3] = imageData.data[i + 3];
-          }
+              const darker = mapRange(
+                Math.pow(
+                  mapRange(random.noise2D(x, y, 0.01), -1, 1, 0, 1),
+                  0.3
+                ),
+                0,
+                1,
+                mapRange(Math.pow(value, 0.5), 0, 1, 0.8, 1),
+                1
+              );
+              const noise = random.gaussian(
+                1,
+                gA * mapRange(Math.pow(value, 3), 0, 1, 2, 0.7)
+              );
+              imageData.data[i] = clamp(
+                Math.round(imageData.data[i] * darker * noise),
+                0,
+                255
+              );
+              imageData.data[i + 1] = clamp(
+                Math.round(imageData.data[i + 1] * darker * noise),
+                0,
+                255
+              );
+              imageData.data[i + 2] = clamp(
+                Math.round(imageData.data[i + 2] * darker * noise),
+                0,
+                255
+              );
+              imageData.data[i + 3] = imageData.data[i + 3];
+            }
 
-          return imageData;
-        }),
-      ],
-    };
-
-    console.table({
-      "Color Mixer": colorMixer.name,
-      "Color Picker": coreColorPicker.name,
-      isDullLight: isDullLight,
-      isIrregularGrid,
-      isGiganticSize,
-      isDarkBackground,
-      isColorful,
-      mainHue,
-      smoothFactor,
-      hasGradient,
-      gradientStrength,
-      hasCellGradientHomogeneity,
-      numberOfSplits,
-      progressForm: progressForm.fxname,
-      shouldMainSplit: shouldMainSplit,
-      transformAmount: tiltAmount,
-      invertProgress: invertProgress,
-      test: "test",
-    });
+            return imageData;
+          }),
+        ],
+      };
+    }
   },
   () => {
     const params = new URLSearchParams(window.location.search);
@@ -2018,8 +2187,6 @@ canvasJp(
       width = Number(params.get("width")) || 1920;
       height = (width * 21) / 29.7;
     }
-
-    console.log(width, height);
 
     const imageRatio = width / height;
     const resolutionFactor =
