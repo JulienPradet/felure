@@ -1,6 +1,6 @@
 import { canvasJp, CanvasJpDrawable, CanvasJpStrokeStyle } from "canvas-jp";
 import { prodMode } from "canvas-jp/plugins/prodMode";
-import { fxhash } from "canvas-jp/plugins/fxhash";
+import { fxhashCollection } from "canvas-jp/plugins/fxhashCollection";
 import { inOutBounce, inOutCirc } from "canvas-jp/ease";
 import {
   CanvasJpColorHsv,
@@ -29,8 +29,6 @@ import { getIntersection } from "canvas-jp/intersection";
 import { UpdateImageData } from "canvas-jp/UpdateImageData";
 import { CanvasJpArc, Circle } from "canvas-jp/Circle";
 import { CanvasJpFill } from "canvas-jp/draw";
-import { CanvasJpExecuteCanvas } from "canvas-jp";
-import { random } from "canvas-sketch-util";
 
 const hashes = [
   {
@@ -3057,7 +3055,11 @@ canvasJp(
       .hex();
     document.body.style.setProperty(
       "--color",
-      Color(background.h, background.s, 1 - background.v).hex()
+      Color(background.h, background.s, background.v > 0.5 ? 0.2 : 0.8).hex()
+    );
+    document.body.style.setProperty(
+      "--actions-color",
+      Color(background.h, background.s * 0.1, 1).hex()
     );
 
     yield {
@@ -3178,81 +3180,10 @@ canvasJp(
       height: height,
       resolution: resolution,
       interactive: false,
-      plugins: [fxhashCollection, prodMode("Felure-JulienPradet")],
+      plugins: [fxhashCollection(hashes), prodMode("Felure-JulienPradet")],
     };
   }
 );
-
-function fxhashCollection(
-  executeCanvasJp: CanvasJpExecuteCanvas,
-  container: HTMLElement
-): CanvasJpExecuteCanvas {
-  let destroy: () => void;
-
-  const params = new URLSearchParams(window.location.search);
-
-  let index = params.get("index") && Number(params.get("index")) < hashes.length && Number(params.get("index")) >= 0 ? (Number(params.get("index")) - 1) :
-     Math.floor(random.value() * hashes.length);
-     console.log(index)
-
-    document
-      .querySelector(".details__open")
-      ?.setAttribute(
-        "href",
-        `https://www.fxhash.xyz/gentk/${hashes[index].id}`
-      );
-      history.replaceState({}, '', `?index=${index + 1}`);
-
-  async function goTo(indexDiff: number) {
-    index = (index + indexDiff + hashes.length) % hashes.length;
-    console.log(index)
-    document
-      .querySelector(".details__open")
-      ?.setAttribute(
-        "href",
-        `https://www.fxhash.xyz/gentk/${hashes[index].id}`
-      );
-
-      history.pushState({}, '', `?index=${index + 1}`);
-
-    if (destroy) {
-      destroy();
-    }
-
-    destroy = await executeCanvasJp(hashes[index].generationHash);
-  }
-
-  window.addEventListener("keydown", (event) => {
-    if (event.key === "ArrowRight") {
-      goTo(1);
-    } else if (event.key === "ArrowLeft") {
-      goTo(-1);
-    }
-  });
-
-  document
-    .querySelector(".details__prev")
-    ?.addEventListener("click", function () {
-      goTo(-1);
-    });
-  document
-    .querySelector(".details__next")
-    ?.addEventListener("click", function () {
-      goTo(1);
-    });
-
-  document
-    .querySelector(".details__open")
-    ?.addEventListener("click", function (event) {
-      event.stopPropagation();
-      console.log('heheheh')
-    });
-
-  return async () => {
-    destroy = await executeCanvasJp(hashes[index].generationHash);
-    return () => destroy();
-  };
-}
 
 function polygonCenter({ points }: { points: CanvasJpPoint[] }): CanvasJpPoint {
   let sum = points.slice(1).reduce(({ x, y }, point) => {

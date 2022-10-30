@@ -30,20 +30,87 @@
         width: auto !important;
       }
 
+      canvas {
+        display: block;
+        max-width: 100%;
+        max-height: 100%;
+        width: 100%;
+        height: auto;
+        transform: none !important;
+      }
+
       .details {
         position: fixed;
         bottom: 0;
+        transform: translateY(100%);
+        transition: transform 0.3s ease-in-out;
+      }
+      .details::before {
+        content: "";
+        position: absolute;
+        top: -100px;
+        height: 100px;
+        left: 0;
+        right: 0;
+        cursor: pointer;
+      }
+      .details::after {
+        pointer-events: none;
+        content: "";
+        position: absolute;
+        top: -20px;
+        left: 50%;
+        background: var(--color);
+        transform: translate(-50%);
+        height: 3px;
+        width: 100px;
+        transition: opacity 0.3s ease-in-out;
+      }
+      .details__actions {
+        position: relative;
+        z-index: 1;
+        background: var(--actions-color);
+        color: #000;
         display: flex;
         justify-content: center;
+        padding-left: 20px;
+        padding-right: 13px;
+        border-top-left-radius: 2px;
+        border-top-right-radius: 2px;
+        backdrop-filter: blur(10px);
+      }
+      .details:focus-within,
+      .details.open {
+        transform: none;
+      }
+      .details:focus-within::after,
+      .details.open::after {
+        opacity: 0;
+      }
+      .details:focus-within::before,
+      .details.open::before {
+        cursor: default;
+        top: auto;
+        bottom: 0;
+        left: 50%;
+        width: 100vw;
+        height: 100vh;
+        transform: translate(-50%);
+      }
+      .details > * {
+        pointer-events: none;
+      }
+      .details.open > * {
+        pointer-events: all;
       }
 
       .details button,
       .details a {
         background: none;
         border: none;
-        color: var(--color);
+        color: currentColor;
         cursor: pointer;
-        padding: 1rem 1rem 0.2rem 1rem;
+        padding: 1rem 1rem 1rem 1rem;
         transition: opacity 0.3s ease;
         font-size: 0.8rem;
         font-family: "Liberation Sans", Arial, Helvetica, sans-serif;
@@ -54,11 +121,12 @@
       .details a:focus,
       .details a:hover {
         outline: none;
-        opacity: 0.7;
+        opacity: 0.4;
       }
 
       .details__prev svg,
-      .details__next svg {
+      .details__next svg,
+      .details__close svg {
         height: 15px;
         width: 20px;
       }
@@ -66,99 +134,55 @@
       .details .details__open {
         box-sizing: content-box;
         letter-spacing: 0.5em;
-        line-height: 20px;
-        height: 20px;
+        line-height: 45px;
+        height: 45px;
         padding-top: 0.9rem;
         text-transform: uppercase;
         margin-left: 0.5em;
         font-weight: 500;
         text-decoration: none;
       }
-
-      canvas {
-        display: block;
-        max-width: 100%;
-        max-height: 100%;
-        width: 100%;
-        height: auto;
-        transform: none !important;
-      }
     </style>
-    <script id="fxhash-snippet">
-      //---- do not edit the following code (you can indent as you wish)
-      let alphabet =
-        "123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ";
-      var fxhash =
-        new URLSearchParams(window.location.search).get("fxhash") ||
-        "oo" +
-          Array(49)
-            .fill(0)
-            .map((_) => alphabet[(Math.random() * alphabet.length) | 0])
-            .join("");
-      console.log(fxhash);
-      let b58dec = (str) =>
-        [...str].reduce(
-          (p, c) => (p * alphabet.length + alphabet.indexOf(c)) | 0,
-          0
-        );
-      let fxhashTrunc = fxhash.slice(2);
-      let regex = new RegExp(".{" + ((fxhashTrunc.length / 4) | 0) + "}", "g");
-      let hashes = fxhashTrunc.match(regex).map((h) => b58dec(h));
-      let sfc32 = (a, b, c, d) => {
-        return () => {
-          a |= 0;
-          b |= 0;
-          c |= 0;
-          d |= 0;
-          var t = (((a + b) | 0) + d) | 0;
-          d = (d + 1) | 0;
-          a = b ^ (b >>> 9);
-          b = (c + (c << 3)) | 0;
-          c = (c << 21) | (c >>> 11);
-          c = (c + t) | 0;
-          return (t >>> 0) / 4294967296;
-        };
-      };
-      var fxrand = sfc32(...hashes);
-      // true if preview mode active, false otherwise
-      // you can append preview=1 to the URL to simulate preview active
-      var isFxpreview =
-        new URLSearchParams(window.location.search).get("preview") === "1";
-      // call this method to trigger the preview
-      function fxpreview() {
-        console.log("fxhash: TRIGGER PREVIEW");
-      }
-      //---- /do not edit the following code
-    </script>
   </head>
   <body>
     <div id="container"></div>
-    <div class="details">
-      <button class="details__prev">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
-          <title>Previous</title>
-          <path
-            fill="currentColor"
-            d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"
-          />
-        </svg>
-      </button>
-      <a
-        class="details__open"
-        href="https://www.fxhash.xyz/generative/slug/felure"
-        target="_blank"
-        rel="noopener"
-        >Open</a
-      >
-      <button class="details__next">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
-          <title>Next</title>
-          <path
-            fill="currentColor"
-            d="M438.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L338.8 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l306.7 0L233.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l160-160z"
-          />
-        </svg>
-      </button>
+    <div class="details" tabindex="-1">
+      <div class="details__actions">
+        <button class="details__prev">
+          <svg viewBox="0 0 448 512">
+            <title>Previous</title>
+            <path
+              fill="currentColor"
+              d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"
+            />
+          </svg>
+        </button>
+        <a
+          class="details__open"
+          href="https://www.fxhash.xyz/generative/slug/felure"
+          target="_blank"
+          rel="noopener"
+          >Open</a
+        >
+        <button class="details__next">
+          <svg viewBox="0 0 448 512">
+            <title>Next</title>
+            <path
+              fill="currentColor"
+              d="M438.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L338.8 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l306.7 0L233.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l160-160z"
+            />
+          </svg>
+        </button>
+        <button class="details__close">
+          <svg viewBox="0 0 320 512">
+            <title>Close</title>
+            <path
+              fill="currentColor"
+              d="M310.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L160 210.7 54.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L114.7 256 9.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L160 301.3 265.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L205.3 256 310.6 150.6z"
+            />
+          </svg>
+        </button>
+      </div>
     </div>
     <script type="module" src="/main.ts" async></script>
   </body>
